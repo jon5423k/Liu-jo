@@ -1,0 +1,56 @@
+name: Workflow 3 - Brands Batch 3 (Sub 11-15)
+
+on:
+  workflow_run:
+    workflows: ["Workflow 2 - Brands Batch 2 (Sub 6-10)"]
+    types:
+      - completed
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  scrape-brands-batch-3:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        folder: 
+          - women_brands_sub11
+          - women_brands_sub12
+          - women_brands_sub13
+          - women_brands_sub14
+          - women_brands_sub15
+      fail-fast: false  # Continue even if one folder fails
+      max-parallel: 5    # Run all 5 in parallel
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install chromium
+          playwright install-deps
+      
+      - name: Run scraper for ${{ matrix.folder }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          python -m ${{ matrix.folder }}.main
+      
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.folder }}
+          path: |
+            **/*.log
+            **/temp/**
+          retention-days: 7
